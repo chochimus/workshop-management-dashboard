@@ -1,0 +1,120 @@
+### Variables
+
+@baseUrl = http://localhost:3000/api/sessions
+@sessionId = 1
+@invalidId = abc
+
+### Get all sessions
+GET {{baseUrl}}
+Accept: application/json
+
+### Get a session by ID
+GET {{baseUrl}}/{{sessionId}}
+Accept: application/json
+
+### Get a session with an invalid ID
+GET {{baseUrl}}/{{invalidId}}
+Accept: application/json
+
+### Get a session that does not exist
+GET {{baseUrl}}/9999
+Accept: application/json
+
+### Create a session
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Woodworking Basics",
+  "startTime": "2026-11-05T14:00:00.000Z",
+  "endTime": "2026-11-05T16:00:00.000Z",
+  "capacity": 10
+}
+
+### Create a session with a missing property (should fail)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Intro to Welding",
+  "startTime": "2026-11-06T14:00:00.000Z",
+  "endTime": "2026-11-06T16:00:00.000Z"
+}
+
+### Create a session with an invalid date (should fail)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Invalid Session",
+  "startTime": "2026-11-05T16:00:00.000Z",
+  "endTime": "2026-11-05T14:00:00.000Z",
+  "capacity": 10
+}
+
+### Create a session with an unknown property (should fail)
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+  "title": "Intro to Welding",
+  "startTime": "2026-11-06T14:00:00.000Z",
+  "endTime": "2026-11-06T16:00:00.000Z",
+  "capacity": 10,
+  "location": "Workshop A"
+}
+
+### Patch a session's title
+PATCH {{baseUrl}}/{{sessionId}}
+Content-Type: application/json
+
+{
+  "title": "Advanced Woodworking"
+}
+
+### Patch a session's capacity
+PATCH {{baseUrl}}/{{sessionId}}
+Content-Type: application/json
+
+{
+  "capacity": 15
+}
+
+### Patch a session with an empty body (should fail)
+PATCH {{baseUrl}}/{{sessionId}}
+Content-Type: application/json
+
+{}
+
+### Patch a session with an unknown property (should fail)
+PATCH {{baseUrl}}/{{sessionId}}
+Content-Type: application/json
+
+{
+  "location": "Workshop B"
+}
+
+### Patch a session with an invalid time range (should fail)
+PATCH {{baseUrl}}/{{sessionId}}
+Content-Type: application/json
+
+{
+  "startTime": "2026-11-05T17:00:00.000Z"
+}
+
+### Patch a nonexistent session
+PATCH {{baseUrl}}/9999
+Content-Type: application/json
+
+{
+  "title": "Does Not Exist"
+}
+
+### Delete a session
+DELETE {{baseUrl}}/{{sessionId}}
+
+### Delete a nonexistent session
+DELETE {{baseUrl}}/9999
+
+### Delete with an invalid ID
+DELETE {{baseUrl}}/{{invalidId}}

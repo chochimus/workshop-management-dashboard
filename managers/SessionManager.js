@@ -16,7 +16,21 @@ class SessionManager {
     return this.bookings.length === 0 ? 1 : Math.max(...this.bookings.map(booking => booking.id)) + 1;
   }
   getSessions() {
-    return [...this.sessions];
+    const bookingCounts = new Map();
+
+    for (const booking of this.bookings) {
+      bookingCounts.set(
+        booking.sessionId,
+        (bookingCounts.get(bookingCounts.sessionId) ?? 0) + 1
+      );
+    }
+
+    return this.sessions.map(session => {
+      return {
+        ...session,
+        bookingCount: bookingCounts.get(session.id) ?? 0
+      }
+    });
   }
   getBookings(sessionId) {
     this.getSession(sessionId);
@@ -40,7 +54,15 @@ class SessionManager {
       throw err;
     }
 
-    return session;
+    let bookingCount = 0;
+
+    for (const booking of this.bookings) {
+      if (booking.sessionId === session.id) {
+        bookingCount++;
+      }
+    }
+
+    return {...session, bookingCount};
   }
   async createSession(data) {
     if (!this.isValidSessionPost(data)) {

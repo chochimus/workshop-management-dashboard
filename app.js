@@ -10,6 +10,7 @@ const port = 3000;
 await initializeData();
 await initializeTools();
 
+app.use(express.static('public'));
 app.use(express.json());
 
 app.use('/api/sessions', sessionsRouter);

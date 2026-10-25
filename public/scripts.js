@@ -2,6 +2,12 @@ class DashboardUI {
   constructor() {
     this.render();
   }
+  renderUpcomingSessions() {
+
+  }
+  renderToolData() {
+
+  }
   render() {
     let h2 = document.createElement('h2');
     h2.textContent = 'filler';
@@ -11,11 +17,12 @@ class DashboardUI {
 
 class SessionsUI {
   constructor() {
-    this.element = document.createElement('ul');
+    this.element = document.createElement('section');
     this.render();
   }
   renderSessions(sessions) {
-    this.element.replaceChildren(...sessions.map(session => {
+    let ul = document.createElement('ul');
+    sessions.forEach(session => {
       let li = document.createElement('li');
       li.dataset.id = session.id;
 
@@ -39,13 +46,56 @@ class SessionsUI {
       bookingCount.textContent = session.bookingCount;
       li.appendChild(bookingCount);
 
-      return li;
-    }));
+      let editButton = document.createElement('button');
+      editButton.textContent = 'Edit';
+      editButton.classList.add('edit-btn');
+      li.appendChild(editButton);
+
+      let deleteButton = document.createElement('button');
+      deleteButton.textContent = 'Delete';
+      deleteButton.classList.add('delete-btn');
+      li.appendChild(deleteButton);
+
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+  handleLiClick(event) {
+    let li = event.target.closest('li');
+
+    if (!li) {
+      return;
+    }
+    let id = li.dataset.id;
+    if (event.target.classList.contains('edit-btn')) {
+      this.handleEditClick(event, id);
+    } else if (event.target.classList.contains('delete-btn')) {
+      this.handleDeleteClick(event, id);
+    }
+  }
+  handleEditClick(event, id) {
+    
+  }
+  handleDeleteClick(event, id) {
+
+  }
+  openNewSessionForm(event) {
+
   }
   async render() {
     try {
       const sessions = await getSessions();
-      this.renderSessions(sessions);
+      let h2 = document.createElement('h2');
+      h2.textContent = 'Sessions';
+
+      let createSession = document.createElement('button');
+      createSession.textContent = 'New Session';
+      createSession.addEventListener('click', this.openNewSessionForm.bind(this));
+
+      let ul = this.renderSessions(sessions);
+      ul.addEventListener('click', this.handleLiClick.bind(this));
+
+      this.element.replaceChildren(h2, createSession, ul);
     } catch(error) {
       this.renderError(error);
     }

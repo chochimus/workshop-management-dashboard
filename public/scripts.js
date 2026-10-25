@@ -74,7 +74,7 @@ class SessionsUI {
     }
   }
   handleEditClick(event, id) {
-    
+
   }
   handleDeleteClick(event, id) {
 
@@ -109,11 +109,13 @@ class SessionsUI {
 
 class InventoryUI {
   constructor() {
-    this.element = document.createElement('ul');
+    this.element = document.createElement('section');
     this.render();
   }
   renderTools(tools) {
-    this.element.replaceChildren(...tools.map(tool => {
+    let ul = document.createElement('ul');
+
+    tools.forEach(tool => {
       let li = document.createElement('li');
       li.dataset.id = tool.id;
 
@@ -133,13 +135,48 @@ class InventoryUI {
       availability.textContent = tool.availability;
       li.appendChild(availability);
 
-      return li;
-    }));
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+  async handleToolClick(event) {
+    let li = event.target.closest('li');
+
+    if (!li) {
+      return;
+    }
+    let id = li.dataset.id;
+    if (event.target.closest('edit-btn')) {
+      await this.handleEditTool(event, id);
+    } else if (event.target.closest('delete-btn')) {
+      await this.handleDeleteTool(event, id);
+    }
+  }
+  handleEditTool(event, id) {
+
+  }
+  async handleDeleteTool(event, id) {
+    await deleteTool(id);
+    await this.render();
+  }
+  openNewToolForm(event) {
+
   }
   async render() {
     try {
       const tools = await getTools();
-      this.renderTools(tools);
+      
+      let h2 = document.createElement('h2');
+      h2.textContent = 'Inventory';
+
+      let createToolButton = document.createElement('button');
+      createToolButton.textContent = 'New Tool';
+      createToolButton.addEventListener('click', this.openNewToolForm.bind(this));
+
+      let ul = this.renderTools(tools);
+      ul.addEventListener('click', this.handleToolClick.bind(this));
+
+      this.element.replaceChildren(h2, createToolButton, ul);
     } catch(error) {
       this.renderError(error);
     }
@@ -191,6 +228,20 @@ async function getTools() {
     throw new Error(errorData.error);
   }
   return response.json();
+}
+async function deleteTool(id) {
+  const response = await fetch(`/api/tools/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error);
+  }
+}
+
+async function editTool(id) {
+
 }
 
 function renderView(view) {

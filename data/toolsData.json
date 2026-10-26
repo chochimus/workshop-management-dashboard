@@ -1,1 +1,1 @@
-{"tools":[{"id": 1, "name": "Hammer", "category": "Hand Tools", "condition": "new", "availability": true}]}
+{"tools":[{"id":1,"name":"Hammer","category":"Hand Tools","condition":"new","availability":false}]}

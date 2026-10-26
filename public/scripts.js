@@ -153,14 +153,20 @@ class InventoryUI {
     }
   }
   handleEditTool(event, id) {
-
+    // create inline edit form
   }
   async handleDeleteTool(event, id) {
     await deleteTool(id);
     await this.render();
   }
   openNewToolForm(event) {
-
+    // form. hidden toggle
+  }
+  renderNewToolForm(event) {
+    // new empty form
+  }
+  async renderEditToolForm(event, id) {
+    let tool = await getTool(id);
   }
   async render() {
     try {
@@ -172,6 +178,8 @@ class InventoryUI {
       let createToolButton = document.createElement('button');
       createToolButton.textContent = 'New Tool';
       createToolButton.addEventListener('click', this.openNewToolForm.bind(this));
+
+      let newToolForm = this.renderNewToolForm();
 
       let ul = this.renderTools(tools);
       ul.addEventListener('click', this.handleToolClick.bind(this));

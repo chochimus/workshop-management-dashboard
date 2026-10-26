@@ -163,7 +163,6 @@ class InventoryUI {
       await this.handleDeleteTool(event, id);
     }
   }
-
   async handleEditTool(event, id) {
     let tool = await getTool(id);
     let toolNode = document.querySelector(`[data-id="${id}"]`);
@@ -351,6 +350,7 @@ class InventoryUI {
 
       let newToolForm = this.renderToolForm();
       newToolForm.classList.toggle('hidden');
+      newToolForm.addEventListener('submit', this.handleNewSubmit.bind(this));
 
       let ul = this.renderTools(tools);
       ul.addEventListener('click', this.handleToolClick.bind(this));

@@ -209,12 +209,37 @@ class InventoryUI {
       this.renderFormError(form, error);
     }
   }
+  async handleNewSubmit(event) {
+    event.preventDefault();
+    let form = event.target;
+    let formData = new FormData(form);
+    let newTool = Object.fromEntries(formData);
+    
+    if (newTool.category.length < 1) {
+      this.renderError(form, new Error('Category must not be empty'));
+      return;
+    } else if (newTool.name.length < 1) {
+      this.renderError(form, new Error('Name must not be empty'));
+      return;
+    }
+    newTool.availability = newTool.availability === 'true';
+    try {
+      await createTool(JSON.stringify(newTool));
+      form.classList.toggle('hidden');
+      form.reset();
+      await this.render();
+    } catch (error) {
+      console.error(error);
+      this.renderFormError(form, error);
+    }
+  }
   async handleDeleteTool(event, id) {
     await deleteTool(id);
     await this.render();
   }
   openNewToolForm(event) {
-    event.target.toggle('hidden');
+    let form = document.querySelector('.new-form');    
+    form.classList.toggle('hidden');
   }
   createTextInput(htmlId, value) {
     let text = htmlId[0].toUpperCase() + htmlId.slice(1) + ': ';
@@ -334,7 +359,20 @@ class InventoryUI {
 
     return form;
   }
-  renderEditToolForm(tool,) {
+  renderNewToolForm() {
+    let form = this.renderToolForm();
+    form.classList.add('new-form');
+    form.classList.toggle('hidden');
+    form.addEventListener('click', event => {
+      if (event.target.closest('#cancel-btn')) {
+        form.classList.toggle('hidden');
+        form.reset();
+      }
+    });
+    form.addEventListener('submit', this.handleNewSubmit.bind(this));
+    return form;
+  }
+  renderEditToolForm(tool) {
     return this.renderToolForm(tool);
   }
   async render() {
@@ -344,18 +382,16 @@ class InventoryUI {
       let h2 = document.createElement('h2');
       h2.textContent = 'Inventory';
 
+      let newToolForm = this.renderNewToolForm();
+
       let createToolButton = document.createElement('button');
       createToolButton.textContent = 'New Tool';
       createToolButton.addEventListener('click', this.openNewToolForm.bind(this));
 
-      let newToolForm = this.renderToolForm();
-      newToolForm.classList.toggle('hidden');
-      newToolForm.addEventListener('submit', this.handleNewSubmit.bind(this));
-
       let ul = this.renderTools(tools);
       ul.addEventListener('click', this.handleToolClick.bind(this));
 
-      this.element.replaceChildren(h2, createToolButton, ul);
+      this.element.replaceChildren(h2, newToolForm, createToolButton, ul);
     } catch(error) {
       this.renderError(error);
     }
@@ -428,14 +464,26 @@ async function deleteTool(id) {
   }
 }
 async function editTool(id, updateData) {
-  console.log(updateData);
-  
   const response = await fetch(`/api/tools/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json"
     },
     body: updateData
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error);
+  }
+}
+async function createTool(data) {
+  const response = await fetch(`/api/tools/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: data
   });
 
   if (!response.ok) {

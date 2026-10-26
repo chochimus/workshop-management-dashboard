@@ -1,1 +1,1 @@
-{"tools":[{"id":1,"name":"Hammer","category":"Hand Tools","condition":"new","availability":false}]}
+{"tools":[{"id":1,"name":"Hammer","category":"Hand Tools","condition":"new","availability":true},{"name":"HandSaw","category":"Hand Tools","condition":"good","availability":true,"id":2}]}

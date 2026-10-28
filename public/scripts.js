@@ -16,7 +16,25 @@ class DashboardUI {
 }
 
 class SessionDetailsUI {
+  constructor(session) {
+    this.element = document.createElement('section');
+    this.session = session;
+    this.render();
+  }
+  renderSessionDetails() {
+    let sessionsLink = document.createElement('a');
+    sessionsLink.textContent = '← Back to sessions';
+    sessionsLink.addEventListener('click', () => {
+      e.preventDefault();
+      renderView(new SessionsUI())
+    });
 
+    console.log(this.session);
+    
+  }
+  async render() {
+    this.renderSessionDetails();
+  }
 }
 class SessionsUI {
   constructor() {
@@ -69,8 +87,10 @@ class SessionsUI {
       await this.handleViewDetailsClick(event, id);
     } 
   }
-  handleViewDetailsClick(event, id) {
-    // get session, create new SessionUI with data and render
+  async handleViewDetailsClick(event, id) {
+    let session = await getSession(id);
+    let sessionDetails = new SessionDetailsUI(session);
+    renderView(sessionDetails);
   }
   openNewSessionForm(event) {
     let form = document.querySelector('.new-form');
@@ -627,6 +647,16 @@ async function createSession(data) {
 }
 async function getSessions() {
   const response = await fetch('/api/sessions');
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error);
+  }
+  return response.json();
+}
+
+async function getSession(id) {
+  const response = await fetch(`/api/sessions/${id}`);
 
   if (!response.ok) {
     const errorData = await response.json();

@@ -15,6 +15,9 @@ class DashboardUI {
   }
 }
 
+class SessionDetailsUI {
+
+}
 class SessionsUI {
   constructor() {
     this.element = document.createElement('section');
@@ -46,47 +49,215 @@ class SessionsUI {
       bookingCount.textContent = session.bookingCount;
       li.appendChild(bookingCount);
 
-      let editButton = document.createElement('button');
-      editButton.textContent = 'Edit';
-      editButton.classList.add('edit-btn');
-      li.appendChild(editButton);
-
-      let deleteButton = document.createElement('button');
-      deleteButton.textContent = 'Delete';
-      deleteButton.classList.add('delete-btn');
-      li.appendChild(deleteButton);
+      let viewDetails = document.createElement('button');
+      viewDetails.textContent = 'View details →';
+      viewDetails.classList.add('viewDetails-btn');
+      li.appendChild(viewDetails);
 
       ul.appendChild(li);
     });
     return ul;
   }
-  handleLiClick(event) {
+  async handleLiClick(event) {
     let li = event.target.closest('li');
 
     if (!li) {
       return;
     }
     let id = li.dataset.id;
-    if (event.target.classList.contains('edit-btn')) {
-      this.handleEditClick(event, id);
-    } else if (event.target.classList.contains('delete-btn')) {
-      this.handleDeleteClick(event, id);
-    }
+    if (event.target.closest('.viewDetails-btn')) {
+      await this.handleViewDetailsClick(event, id);
+    } 
   }
-  handleEditClick(event, id) {
-
-  }
-  handleDeleteClick(event, id) {
-
+  handleViewDetailsClick(event, id) {
+    // get session, create new SessionUI with data and render
   }
   openNewSessionForm(event) {
+    let form = document.querySelector('.new-form');
+    form.classList.toggle('hidden');
+  }
+  renderNewSessionForm() {
+    let form = this.renderSessionForm();
+    form.classList.add('new-form');
+    form.classList.add('hidden');
 
+    form.addEventListener('click', (e) => {
+      if (e.target.closest('#cancel-btn')) {
+        form.classList.toggle('hidden');
+        form.reset();
+      } 
+    });
+
+    form.addEventListener('submit', this.handleNewSubmit.bind(this));
+
+    return form;
+  }
+  async handleNewSubmit(e) {
+    e.preventDefault();
+    let form = e.target;
+    let newSessionData = Object.fromEntries(new FormData(form));
+
+    if (!newSessionData.title?.trim()) {
+      this.renderFormError(form, new Error('Title must not be empty'));
+      return;
+    }
+    
+    let startTime = new Date(newSessionData.date + 'T' + newSessionData.startTime);
+    let endTime = new Date(newSessionData.date + 'T' + newSessionData.endTime);
+
+    if (startTime >= endTime) {
+      this.renderFormError(form, new Error('End time must be after start time.'));
+      return;
+    } 
+
+    let formattedData = {
+      title: newSessionData.title.trim(),
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      capacity: Number(newSessionData.capacity) 
+    }
+
+    try {
+      await createSession(JSON.stringify(formattedData));
+      form.classList.toggle('hidden');
+      form.reset();
+      await this.render();
+    } catch (error) {
+      console.error(error);
+      this.renderFormError(form, error);
+    }
+  }
+  renderSessionForm() {
+    let form = document.createElement('form');
+
+    let title = this.createTextInput('title');
+
+    let date = this.createDateInput('date', 'Date');
+
+    let startTime = this.createTimeInput('startTime', 'Start Time');
+    let endTime = this.createTimeInput('endTime', 'End Time');
+
+    let startTimeInput = startTime.querySelector('input');
+    let endTimeInput = endTime.querySelector('input');
+
+    endTimeInput.min = startTimeInput.value;
+
+    startTimeInput.addEventListener('change', (e) => {
+      endTimeInput.min = startTimeInput.value;
+    });
+
+    let capacity = this.createNumberInput('capacity');
+
+    let controls = document.createElement('div');
+    controls.classList.add('form-controls');
+    let submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.textContent = 'Submit';
+    submit.id = 'submit-btn';
+    let cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Cancel';
+    cancel.id = 'cancel-btn';
+    controls.appendChild(submit);
+    controls.appendChild(cancel);
+
+    form.appendChild(title);
+    form.appendChild(date);
+    form.appendChild(startTime);
+    form.appendChild(endTime);
+    form.appendChild(capacity);
+    form.appendChild(controls);
+
+    return form;
+  }
+  createNumberInput(htmlId) {
+    let text = htmlId[0].toUpperCase() + htmlId.slice(1) + ': ';
+
+    let div = document.createElement('div');
+    div.classList.add('input-wrapper');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', htmlId);
+    label.textContent = text;
+    div.appendChild(label);
+    let input = document.createElement('input');
+    input.type = 'number';
+    input.name = htmlId;
+    input.min = 1;
+    input.max = 100;
+    input.id = htmlId;
+    input.required = true;
+    div.appendChild(input);
+    
+    return div;
+  }
+  createTimeInput(htmlId, displayText) {
+    let text = displayText + ': ';
+
+    let div = document.createElement('div');
+    div.classList.add('input-wrapper');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', htmlId);
+    label.textContent = text;
+    div.appendChild(label);
+    let input = document.createElement('input');
+    input.type = 'time';
+    input.name = htmlId;
+    input.id = htmlId;
+    input.required = true;
+    div.appendChild(input);
+
+    return div;
+  }
+  createDateInput(htmlId, displayText) {
+    let text = displayText + ': ';
+
+    let div = document.createElement('div');
+    div.classList.add('input-wrapper');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', htmlId);
+    label.textContent = text;
+    div.appendChild(label);
+    let input = document.createElement('input');
+    input.type = 'date';
+    input.name = htmlId;
+    input.id = htmlId;
+    input.required = true;
+    const localDate = new Date();
+    input.min = (new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    input.value = input.min;    
+    div.appendChild(input);
+
+    return div;
+  }
+  createTextInput(htmlId) {
+    let text = htmlId[0].toUpperCase() + htmlId.slice(1) + ': ';
+
+    let div = document.createElement('div');
+    div.classList.add('input-wrapper');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', htmlId);
+    label.textContent = text;
+    div.appendChild(label);
+    let input = document.createElement('input');
+    input.type = 'text';
+    input.name = htmlId;
+    input.id = htmlId;
+    input.required = true;
+    div.appendChild(input);
+    
+    return div;
   }
   async render() {
     try {
       const sessions = await getSessions();
       let h2 = document.createElement('h2');
       h2.textContent = 'Sessions';
+
+      let newSessionForm = this.renderNewSessionForm();
 
       let createSession = document.createElement('button');
       createSession.textContent = 'New Session';
@@ -95,7 +266,7 @@ class SessionsUI {
       let ul = this.renderSessions(sessions);
       ul.addEventListener('click', this.handleLiClick.bind(this));
 
-      this.element.replaceChildren(h2, createSession, ul);
+      this.element.replaceChildren(h2, newSessionForm, createSession, ul);
     } catch(error) {
       this.renderError(error);
     }
@@ -104,6 +275,15 @@ class SessionsUI {
     const message = document.createElement('p');
     message.textContent = error.message;
     this.element.replaceChildren(message);
+  }
+  renderFormError(form, error) {
+    let message = document.createElement('p');
+    message.classList.add('form-error');
+    message.setAttribute('role', 'alert');
+    message.textContent = error.message;
+
+    form.querySelector('.form-error')?.remove();
+    form.prepend(message);
   }
 }
 
@@ -215,13 +395,19 @@ class InventoryUI {
     let formData = new FormData(form);
     let newTool = Object.fromEntries(formData);
     
-    if (newTool.category.length < 1) {
-      this.renderError(form, new Error('Category must not be empty'));
-      return;
-    } else if (newTool.name.length < 1) {
-      this.renderError(form, new Error('Name must not be empty'));
+    if (!newTool.name?.trim()) {
+      this.renderFormError(form, new Error('Name must not be empty'));
       return;
     }
+    if (!newTool.category?.trim()) {
+      this.renderFormError(form, new Error('Category must not be empty'));
+      return;
+    } 
+    if (!formData.has('availability')) {
+      this.renderFormError(form, new Error('Please select availability'));
+      return;
+    }
+
     newTool.availability = newTool.availability === 'true';
     try {
       await createTool(JSON.stringify(newTool));
@@ -343,7 +529,7 @@ class InventoryUI {
     form.appendChild(availabilityDiv);
 
     let controls = document.createElement('div');
-    controls.classList.add('form-controle');
+    controls.classList.add('form-controls');
     let submit = document.createElement('button');
     submit.type = 'submit';
     submit.textContent = 'Submit';
@@ -425,6 +611,20 @@ async function handleNavClick(e) {
   }
 }
 
+async function createSession(data) {
+  const response = await fetch(`/api/sessions/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: data
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error);
+  }
+}
 async function getSessions() {
   const response = await fetch('/api/sessions');
 

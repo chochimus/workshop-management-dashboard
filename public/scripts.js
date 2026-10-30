@@ -15,6 +15,66 @@ class DashboardUI {
   }
 }
 
+class BookingsUI {
+  constructor(sessionId) {
+    this.element = document.createElement('div');
+    this.sessionId = sessionId;
+    this.render();
+  }
+  async renderBookingsList() {
+    let bookings = await getBookings(this.sessionId);
+    let bookingsList = document.createElement('ul');
+
+    bookings.forEach(booking => {
+      let li = document.createElement('li');
+      li.dataset.id = booking.id;
+
+      let name = document.createElement('p');
+      name.textContent = booking.attendeeName;
+
+      let deleteButton = document.createElement('button');
+      deleteButton.id = 'delete-btn';
+      deleteButton.textContent = 'cancel';
+
+      li.append(name, deleteButton);
+      bookingsList.appendChild(li);
+    });
+    return bookingsList;
+  }
+  async handleCancelBooking(e) {
+    if (!e.target.closest('#delete-btn')) {
+      return;
+    }
+    let li = e.target.closest('li');
+    let id = li.dataset.id;
+    try {
+      await deleteBooking(this.sessionId, id);
+      await this.render();
+    } catch (error) {
+      console.error(error.message);
+      this.renderError(error);
+    }
+  }
+  renderError(error) {
+    const message = document.querySelector('.error-msg');
+    message.textContent = error.message;
+    setTimeout(() => {
+      message.textContent = '';
+    },5000);
+  }
+  async render() {
+    let header = document.createElement('h2');
+    header.textContent = 'Bookings';
+
+    let errorMsg = document.createElement('p');
+    errorMsg.classList.add('error-msg');
+
+    let bookingsList = await this.renderBookingsList();
+    bookingsList.addEventListener('click', this.handleCancelBooking.bind(this));
+
+    this.element.replaceChildren(header, errorMsg, bookingsList);
+  }
+}
 class SessionDetailsUI {
   constructor(session) {
     this.element = document.createElement('section');
@@ -81,7 +141,6 @@ class SessionDetailsUI {
 
     return `${dateText} · ${startTimeText}–${endTimeText}`;
   }
-
   async handleEditClick(event) {
     let sessionContainer = document.querySelector('.session-container');
 
@@ -99,7 +158,6 @@ class SessionDetailsUI {
 
     form.addEventListener('submit', (e) => this.handlePatchSubmit(e, sessionContainer, originalChildren));
   }
-
   async handlePatchSubmit(e, sessionNode, originalChildren) {
     e.preventDefault();
     let form = e.target;
@@ -279,12 +337,12 @@ class SessionDetailsUI {
     
     return div;
   }
-
   async render() {
     let sessionDetailsElement = this.renderSessionDetails();
     let editSessionButton = sessionDetailsElement.querySelector('button');
     editSessionButton.addEventListener('click', this.handleEditClick.bind(this));
-    this.element.replaceChildren(sessionDetailsElement);
+    let bookings = new BookingsUI(this.session.id);
+    this.element.replaceChildren(sessionDetailsElement, bookings.element);
   }
 }
 class SessionsUI {
@@ -900,6 +958,26 @@ async function handleNavClick(e) {
   }
 }
 
+async function deleteBooking(id) {
+  const response = await fetch(`/api/bookings/${id}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error);
+  }
+}
+async function getBookings(sessionId) {
+  const response = await fetch(`/api/sessions/${sessionId}/bookings`);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error);
+  }
+  return response.json();
+}
+
 async function createSession(data) {
   const response = await fetch(`/api/sessions/`, {
     method: "POST",
@@ -923,7 +1001,6 @@ async function getSessions() {
   }
   return response.json();
 }
-
 async function getSession(id) {
   const response = await fetch(`/api/sessions/${id}`);
 
@@ -933,7 +1010,6 @@ async function getSession(id) {
   }
   return response.json();
 }
-
 async function updateSession(id, data) {
   const response = await fetch(`/api/sessions/${id}`, {
     method: 'PATCH',

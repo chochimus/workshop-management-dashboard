@@ -22,18 +22,269 @@ class SessionDetailsUI {
     this.render();
   }
   renderSessionDetails() {
+    let sessionContainer = document.createElement('div');
+    sessionContainer.classList.add('session-container');
+
     let sessionsLink = document.createElement('a');
+    sessionsLink.href = '#';
     sessionsLink.textContent = '← Back to sessions';
-    sessionsLink.addEventListener('click', () => {
+    sessionsLink.addEventListener('click', (e) => {
       e.preventDefault();
       renderView(new SessionsUI())
     });
 
-    console.log(this.session);
+    let sessionHeader = document.createElement('header');
+
+    let headerContent = document.createElement('div');
+    let title = document.createElement('h2');
+    title.textContent = this.session.title;
+    let content = document.createElement('p');
+    content.textContent = this.getDateTextInfo();
+    headerContent.replaceChildren(title, content);
     
+    let editButton = document.createElement('button');
+    editButton.textContent = 'Edit session';
+    editButton.id = 'edit-btn';
+    sessionHeader.replaceChildren(headerContent, editButton);
+
+    let sessionContent = document.createElement('div');
+    
+    let bookedInfoContainer = document.createElement('div');
+    let bookedInfoTitle = document.createElement('p');
+    bookedInfoTitle.textContent = 'Booked';
+    let bookedInfoContent = document.createElement('p');
+    bookedInfoContent.textContent = `${this.session.bookingCount} / ${this.session.capacity}`;
+    bookedInfoContainer.replaceChildren(bookedInfoTitle, bookedInfoContent);
+
+    let spotsRemainingContainer = document.createElement('div');
+    let spotsRemainingTitle = document.createElement('p');
+    spotsRemainingTitle.textContent = 'Spots remaining';
+    let spotsRemainingContent = document.createElement('p');
+    spotsRemainingContent.textContent = `${this.session.capacity - this.session.bookingCount}`;
+    spotsRemainingContainer.replaceChildren(spotsRemainingTitle, spotsRemainingContent);
+    sessionContent.replaceChildren(bookedInfoContainer, spotsRemainingContainer);
+
+    sessionContainer.replaceChildren(sessionsLink, sessionHeader, sessionContent);
+
+    return sessionContainer;
   }
+  getDateTextInfo() {
+    let startDateObject = new Date(this.session.startTime);
+    let endDateObject = new Date(this.session.endTime);
+    
+    const dateOptions = { month: 'long', day: 'numeric' };
+    const dateText = new Intl.DateTimeFormat('en-US', dateOptions).format(startDateObject);
+
+    const timeOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+    const startTimeText = new Intl.DateTimeFormat('en-US', timeOptions).format(startDateObject);
+    const endTimeText = new Intl.DateTimeFormat('en-US', timeOptions).format(endDateObject);
+
+    return `${dateText} · ${startTimeText}–${endTimeText}`;
+  }
+
+  async handleEditClick(event) {
+    let sessionContainer = document.querySelector('.session-container');
+
+    let originalChildren = [...sessionContainer.children];
+    let form = this.renderEditForm();
+
+    sessionContainer.replaceChildren(form);
+
+    form.addEventListener('click', (e) => {
+      if (e.target.closest('#cancel-btn')) {
+        sessionContainer.replaceChildren(...originalChildren);
+        form.reset();
+      } 
+    });
+
+    form.addEventListener('submit', (e) => this.handlePatchSubmit(e, sessionContainer, originalChildren));
+  }
+
+  async handlePatchSubmit(e, sessionNode, originalChildren) {
+    e.preventDefault();
+    let form = e.target;
+    let editSessionData = Object.fromEntries(new FormData(form));
+    
+    let startTime = new Date(editSessionData.date + 'T' + editSessionData.startTime);
+    let endTime = new Date(editSessionData.date + 'T' + editSessionData.endTime);
+
+    if (startTime >= endTime) {
+      this.renderFormError(form, new Error('End time must be after start time.'));
+      return;
+    }
+
+    let updateData = {
+      title: editSessionData.title,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      capacity: Number(editSessionData.capacity),
+    }
+    
+    editSessionData = Object.fromEntries(
+      Object.entries(updateData).filter(([key, val]) => this.session[key] !== val)
+    );
+
+    if (Object.keys(editSessionData).length === 0) {
+      sessionNode.replaceChildren(...originalChildren);
+      return;
+    }
+
+    try {
+      let session = await updateSession(this.session.id, JSON.stringify(editSessionData));
+      this.session = session;
+      await this.render();
+    } catch (error) {
+      console.error(error);
+      this.renderFormError(form, error);
+    }
+  }
+  renderEditForm() {
+    let form = document.createElement('form');
+    form.classList.add('edit-form');
+    let title = this.createTextInput('title');
+    title.querySelector('input').value = this.session.title;
+
+    let date = this.createDateInput('date', 'Date');
+    date.querySelector('input').value = this.session.startTime.slice(0, 10);
+
+    let startTime = this.createTimeInput('startTime', 'Start Time');
+    let endTime = this.createTimeInput('endTime', 'End Time');
+
+    const startObj = new Date(this.session.startTime);
+    const endObj = new Date(this.session.endTime);
+
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    let startTimeInput = startTime.querySelector('input');
+    startTimeInput.value = timeFormatter.format(startObj);
+
+    let endTimeInput = endTime.querySelector('input');
+    endTimeInput.value = timeFormatter.format(endObj);
+    endTimeInput.min = startTimeInput.value;
+
+    startTimeInput.addEventListener('change', (e) => {
+      endTimeInput.min = startTimeInput.value;
+      if (endTimeInput.value < startTimeInput.value) {
+        endTimeInput.value = startTimeInput.value;
+      }
+    });
+
+    let capacity = this.createNumberInput('capacity');
+    capacity.querySelector('input').value = this.session.capacity;
+
+    let controls = document.createElement('div');
+    controls.classList.add('form-controls');
+    let submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.textContent = 'Submit';
+    submit.id = 'submit-btn';
+    let cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Cancel';
+    cancel.id = 'cancel-btn';
+    controls.appendChild(submit);
+    controls.appendChild(cancel);
+
+    form.appendChild(title);
+    form.appendChild(date);
+    form.appendChild(startTime);
+    form.appendChild(endTime);
+    form.appendChild(capacity);
+    form.appendChild(controls);
+
+    return form;
+  }
+  createNumberInput(htmlId) {
+    let text = htmlId[0].toUpperCase() + htmlId.slice(1) + ': ';
+
+    let div = document.createElement('div');
+    div.classList.add('input-wrapper');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', htmlId);
+    label.textContent = text;
+    div.appendChild(label);
+    let input = document.createElement('input');
+    input.type = 'number';
+    input.name = htmlId;
+    input.min = 1;
+    input.max = 100;
+    input.id = htmlId;
+    input.required = true;
+    div.appendChild(input);
+    
+    return div;
+  }
+  createTimeInput(htmlId, displayText) {
+    let text = displayText + ': ';
+
+    let div = document.createElement('div');
+    div.classList.add('input-wrapper');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', htmlId);
+    label.textContent = text;
+    div.appendChild(label);
+    let input = document.createElement('input');
+    input.type = 'time';
+    input.name = htmlId;
+    input.id = htmlId;
+    input.required = true;
+    div.appendChild(input);
+
+    return div;
+  }
+  createDateInput(htmlId, displayText) {
+    let text = displayText + ': ';
+
+    let div = document.createElement('div');
+    div.classList.add('input-wrapper');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', htmlId);
+    label.textContent = text;
+    div.appendChild(label);
+    let input = document.createElement('input');
+    input.type = 'date';
+    input.name = htmlId;
+    input.id = htmlId;
+    input.required = true;
+    const localDate = new Date();
+    input.min = (new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    input.value = input.min;    
+    div.appendChild(input);
+
+    return div;
+  }
+  createTextInput(htmlId) {
+    let text = htmlId[0].toUpperCase() + htmlId.slice(1) + ': ';
+
+    let div = document.createElement('div');
+    div.classList.add('input-wrapper');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', htmlId);
+    label.textContent = text;
+    div.appendChild(label);
+    let input = document.createElement('input');
+    input.type = 'text';
+    input.name = htmlId;
+    input.id = htmlId;
+    input.required = true;
+    div.appendChild(input);
+    
+    return div;
+  }
+
   async render() {
-    this.renderSessionDetails();
+    let sessionDetailsElement = this.renderSessionDetails();
+    let editSessionButton = sessionDetailsElement.querySelector('button');
+    editSessionButton.addEventListener('click', this.handleEditClick.bind(this));
+    this.element.replaceChildren(sessionDetailsElement);
   }
 }
 class SessionsUI {
@@ -41,7 +292,9 @@ class SessionsUI {
     this.element = document.createElement('section');
     this.render();
   }
+  
   renderSessions(sessions) {
+    // need to update display
     let ul = document.createElement('ul');
     sessions.forEach(session => {
       let li = document.createElement('li');
@@ -51,12 +304,28 @@ class SessionsUI {
       title.textContent = session.title;
       li.appendChild(title);
 
+      const dateOptions = { month: 'long', day: 'numeric' };
+      const dateText = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date(session.startTime));
+
+      let date = document.createElement('p');
+      date.textContent = dateText;     
+      
+      const startObj = new Date(session.startTime);
+      const endObj = new Date(session.endTime);
+
+      const timeFormatter = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      li.appendChild(date);
+
       let startTime = document.createElement('p');
-      startTime.textContent = session.startTime;
+      startTime.textContent = timeFormatter.format(startObj);
       li.appendChild(startTime);
 
       let endTime = document.createElement('p');
-      endTime.textContent = session.endTime;
+      endTime.textContent = timeFormatter.format(endObj);
       li.appendChild(endTime);
 
       let capacity = document.createElement('p');
@@ -657,6 +926,22 @@ async function getSessions() {
 
 async function getSession(id) {
   const response = await fetch(`/api/sessions/${id}`);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error);
+  }
+  return response.json();
+}
+
+async function updateSession(id, data) {
+  const response = await fetch(`/api/sessions/${id}`, {
+    method: 'PATCH',
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: data
+  });
 
   if (!response.ok) {
     const errorData = await response.json();

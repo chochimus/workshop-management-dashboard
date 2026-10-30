@@ -21,7 +21,7 @@ class SessionManager {
     for (const booking of this.bookings) {
       bookingCounts.set(
         booking.sessionId,
-        (bookingCounts.get(bookingCounts.sessionId) ?? 0) + 1
+        (bookingCounts.get(booking.sessionId) ?? 0) + 1
       );
     }
 
@@ -78,7 +78,7 @@ class SessionManager {
     const updatedSessions = [...this.sessions, session];
     await writeFile(filePath, JSON.stringify({sessions: updatedSessions, bookings: this.bookings}));
     this.sessions = updatedSessions;
-    return session;
+    return {...session, bookingCount: 0 };
   }
   async createBooking(sessionId, data) {
     if (!this.isValidId(sessionId)) {
@@ -159,7 +159,10 @@ class SessionManager {
     updatedSessions[existingSessionIndex] = updatedSession;
     await writeFile(filePath, JSON.stringify({sessions: updatedSessions, bookings: this.bookings}))
     this.sessions = updatedSessions;
-    return updatedSession;
+    return {
+      ...updatedSession,
+      bookingCount: this.bookingsForSession(updatedSession.id).length
+    };
   }
   async deleteSession(id) {
     if (!this.isValidId(id)) {

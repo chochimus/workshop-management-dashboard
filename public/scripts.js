@@ -16,9 +16,10 @@ class DashboardUI {
 }
 
 class BookingsUI {
-  constructor(sessionId) {
+  constructor(sessionId, onBookingChange) {
     this.element = document.createElement('div');
     this.sessionId = sessionId;
+    this.onBookingChange = onBookingChange;
     this.render();
   }
   async renderBookingsList() {
@@ -33,7 +34,7 @@ class BookingsUI {
       name.textContent = booking.attendeeName;
 
       let deleteButton = document.createElement('button');
-      deleteButton.id = 'delete-btn';
+      deleteButton.classList.add('delete-btn');
       deleteButton.textContent = 'cancel';
 
       li.append(name, deleteButton);
@@ -42,29 +43,117 @@ class BookingsUI {
     return bookingsList;
   }
   async handleCancelBooking(e) {
-    if (!e.target.closest('#delete-btn')) {
+    if (!e.target.closest('.delete-btn')) {
       return;
     }
     let li = e.target.closest('li');
     let id = li.dataset.id;
     try {
-      await deleteBooking(this.sessionId, id);
+      await deleteBooking(id);
       await this.render();
+      await this.onBookingChange();
     } catch (error) {
       console.error(error.message);
       this.renderError(error);
     }
   }
   renderError(error) {
-    const message = document.querySelector('.error-msg');
+    const message = this.element.querySelector('.error-msg');
     message.textContent = error.message;
     setTimeout(() => {
       message.textContent = '';
     },5000);
   }
+  renderBookingsHeader() {
+    let header = document.createElement('header');
+
+    let h2 = document.createElement('h2');
+    h2.textContent = 'Bookings';
+    let addBooking = document.createElement('button');
+    addBooking.classList.add('addBooking-btn');
+    addBooking.textContent = '+ Add Booking';
+
+    header.append(h2, addBooking);
+
+    return header;
+  }
+  showBookingForm() {
+    let form = this.element.querySelector('.booking-form');
+    form.classList.toggle('hidden');
+  }
+  renderBookingForm() {
+    let form = document.createElement('form');
+    form.classList.add('booking-form', 'hidden');
+
+    let label = document.createElement('label');
+    label.setAttribute('for', 'attendeeName');
+    label.textContent = 'Name:';
+    let input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'attendeeName';
+    input.name = 'attendeeName';
+
+    let controls = document.createElement('div');
+
+    let submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.classList.add('submit-btn');
+    submit.textContent = 'submit';
+    let cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.classList.add('cancel-btn');
+    cancel.textContent = 'cancel';
+
+    controls.append(submit, cancel);
+    form.append(label, input, controls);
+    return form;
+  }
+  handleFormClick(e) {
+    let form = e.currentTarget;
+    if (e.target.closest('.cancel-btn')) {
+      form.classList.add('hidden');
+      form.reset();
+      return;
+    }
+  }
+  async handleFormSubmit(e) {
+    e.preventDefault();
+
+    let form = e.target;
+    let bookingData = Object.fromEntries(new FormData(form));
+
+    let name = bookingData.attendeeName?.trim();
+    if (!name || name.length > 100) {
+      this.renderFormError(form, new Error('Name must be between 1 and 100 characters.'));
+      return;
+    }
+    bookingData.attendeeName = name;
+    try {
+      await createBooking(this.sessionId, JSON.stringify(bookingData));
+      await this.render();
+      await this.onBookingChange();
+    } catch (error) {
+      console.error(error.message);
+      this.renderError(error);
+    }
+  }
+  renderFormError(form, error) {
+    form.querySelector('.form-error')?.remove();
+
+    let message = document.createElement('p');
+    message.classList.add('form-error');
+    message.textContent = error.message;
+    
+    form.prepend(message);
+    setTimeout(() => message.remove(), 5000);
+  }
   async render() {
-    let header = document.createElement('h2');
-    header.textContent = 'Bookings';
+    let header = this.renderBookingsHeader();
+
+    let bookingForm = this.renderBookingForm();
+    header.querySelector('button').addEventListener('click', this.showBookingForm.bind(this));
+    bookingForm.addEventListener('click', this.handleFormClick.bind(this));
+    bookingForm.addEventListener('submit', this.handleFormSubmit.bind(this));
 
     let errorMsg = document.createElement('p');
     errorMsg.classList.add('error-msg');
@@ -72,7 +161,7 @@ class BookingsUI {
     let bookingsList = await this.renderBookingsList();
     bookingsList.addEventListener('click', this.handleCancelBooking.bind(this));
 
-    this.element.replaceChildren(header, errorMsg, bookingsList);
+    this.element.replaceChildren(header, bookingForm, errorMsg, bookingsList);
   }
 }
 class SessionDetailsUI {
@@ -142,12 +231,19 @@ class SessionDetailsUI {
     return `${dateText} · ${startTimeText}–${endTimeText}`;
   }
   async handleEditClick(event) {
-    let sessionContainer = document.querySelector('.session-container');
+    let sessionContainer = this.element.querySelector('.session-container');
 
     let originalChildren = [...sessionContainer.children];
     let form = this.renderEditForm();
 
-    sessionContainer.replaceChildren(form);
+    let sessionsLink = document.createElement('a');
+    sessionsLink.href = '#';
+    sessionsLink.textContent = '← Back to sessions';
+    sessionsLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      renderView(new SessionsUI())
+    });
+    sessionContainer.replaceChildren(sessionsLink, form);
 
     form.addEventListener('click', (e) => {
       if (e.target.closest('#cancel-btn')) {
@@ -337,11 +433,15 @@ class SessionDetailsUI {
     
     return div;
   }
+  async refresh() {
+    this.session = await getSession(this.session.id);
+    await this.render();
+  }
   async render() {
     let sessionDetailsElement = this.renderSessionDetails();
     let editSessionButton = sessionDetailsElement.querySelector('button');
     editSessionButton.addEventListener('click', this.handleEditClick.bind(this));
-    let bookings = new BookingsUI(this.session.id);
+    let bookings = new BookingsUI(this.session.id, this.refresh.bind(this));
     this.element.replaceChildren(sessionDetailsElement, bookings.element);
   }
 }
@@ -958,6 +1058,21 @@ async function handleNavClick(e) {
   }
 }
 
+async function createBooking(sessionId, data) {
+  const response = await fetch(`/api/sessions/${sessionId}/bookings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: data
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error);
+  }
+  return response.json();
+}
 async function deleteBooking(id) {
   const response = await fetch(`/api/bookings/${id}`, {
     method: "DELETE"
